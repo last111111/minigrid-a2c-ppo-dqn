@@ -101,6 +101,7 @@ class BaseAlgo(ABC):
         self.log_return = [0] * self.num_procs
         self.log_reshaped_return = [0] * self.num_procs
         self.log_num_frames = [0] * self.num_procs
+        self.log_success = []  # Track success rate
 
     def collect_experiences(self):
         """Collects rollouts and computes advantages.
@@ -168,6 +169,9 @@ class BaseAlgo(ABC):
                     self.log_return.append(self.log_episode_return[i].item())
                     self.log_reshaped_return.append(self.log_episode_reshaped_return[i].item())
                     self.log_num_frames.append(self.log_episode_num_frames[i].item())
+                    # Track success: reward > 0 means reached goal
+                    is_success = self.log_episode_return[i].item() > 0
+                    self.log_success.append(1 if is_success else 0)
 
             self.log_episode_return *= self.mask
             self.log_episode_reshaped_return *= self.mask
@@ -228,13 +232,16 @@ class BaseAlgo(ABC):
             "reshaped_return_per_episode": self.log_reshaped_return[-keep:],
             "num_frames_per_episode": self.log_num_frames[-keep:],
             "num_frames": self.num_frames,
-            "done": self.log_done_counter
+            "done": self.log_done_counter,
+            "success_per_episode": self.log_success[-keep:]
         }
 
         self.log_done_counter = 0
         self.log_return = self.log_return[-self.num_procs:]
         self.log_reshaped_return = self.log_reshaped_return[-self.num_procs:]
         self.log_num_frames = self.log_num_frames[-self.num_procs:]
+        # Keep all success history for plotting at the end
+        # self.log_success is not reset to keep full history
 
         return exps, logs
 

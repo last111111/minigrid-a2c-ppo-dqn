@@ -1,0 +1,132 @@
+================================================================================
+              依赖安装说明 / Installation Instructions
+================================================================================
+
+您需要按照以下步骤手动运行安装命令。
+
+方法1: 使用自动安装脚本（推荐）
+================================================================================
+
+在 Windows PowerShell 或命令提示符中：
+
+1. 打开命令提示符（按 Win+R，输入 cmd，回车）
+
+2. 切换到项目目录：
+   cd C:\Users\17140\Desktop\minigrid-a2c-ppo-dqn
+
+3. 运行安装脚本：
+   install_dependencies.bat
+
+
+方法2: 手动逐步安装
+================================================================================
+
+在命令提示符中，逐条执行以下命令：
+
+第1步：安装 PyTorch（带 CUDA 11.3 支持）
+----------------------------------------
+python -m pip install torch==1.12.1+cu113 torchvision==0.13.1+cu113 torchaudio==0.12.1 --extra-index-url https://download.pytorch.org/whl/cu113
+
+⏱️ 这一步可能需要 5-10 分钟，请耐心等待。
+
+
+第2步：安装项目依赖
+----------------------------------------
+python -m pip install -r requirements.txt
+
+这将安装：
+- tensorboard
+- tensorboardX
+- numpy
+- gym
+- matplotlib（用于成功率绘图）
+- array2gif
+- progress
+
+
+第3步：安装 minigrid 环境
+----------------------------------------
+cd minigrid
+python -m pip install -e .
+cd ..
+
+
+第4步：安装 torch-ac 库
+----------------------------------------
+cd torch-ac
+python -m pip install -e .
+cd ..
+
+
+验证安装
+================================================================================
+
+运行以下命令检查是否安装成功：
+
+python -c "import torch; print('PyTorch:', torch.__version__); print('CUDA:', torch.cuda.is_available())"
+python -c "import gym_minigrid; print('MiniGrid: OK')"
+python -c "import torch_ac; print('torch-ac: OK')"
+python -c "import matplotlib; print('matplotlib: OK')"
+
+如果所有命令都输出正常，说明安装成功！
+
+
+快速测试
+================================================================================
+
+安装完成后，运行测试脚本：
+
+python quick_test_success_rate.py
+
+这将运行一个快速训练（约2-3分钟），验证所有功能正常。
+
+
+常见问题
+================================================================================
+
+Q: 如果没有 NVIDIA GPU 怎么办？
+A: 使用 CPU 版本的 PyTorch：
+   python -m pip install torch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1
+
+Q: pip 命令找不到？
+A: 使用 python -m pip 代替 pip
+
+Q: 安装 PyTorch 时下载很慢？
+A: 可以使用国内镜像源（清华源）：
+   python -m pip install torch torchvision torchaudio -i https://pypi.tuna.tsinghua.edu.cn/simple
+
+Q: 权限错误？
+A: 添加 --user 参数：
+   python -m pip install --user [包名]
+
+
+开始训练
+================================================================================
+
+安装完成后，可以运行以下命令开始训练：
+
+# 训练 PPO 智能体（包含成功率追踪）
+python scripts/train.py --algo ppo --env MiniGrid-FourRooms-v0 --episodes 1000 --procs 16
+
+# 查看训练日志（会显示最近100次成功率）
+训练过程中会实时显示：SR100（最近100次成功率）和 SRb（当前批次成功率）
+
+# 训练结束后自动生成成功率图表
+图表保存在：storage/{模型名称}/success_rate_plot.png
+
+
+需要帮助？
+================================================================================
+
+1. 查看完整安装指南：
+   INSTALLATION_GUIDE.md
+
+2. 查看成功率追踪说明：
+   SUCCESS_RATE_TRACKING.md
+
+3. 查看项目 README：
+   README.md
+
+
+祝您使用愉快！
+================================================================================

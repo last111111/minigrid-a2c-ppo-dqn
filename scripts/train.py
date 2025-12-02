@@ -2,11 +2,16 @@
 import argparse
 import time
 import datetime
+import os
 import torch
 import torch_ac
 import tensorboardX
 import sys
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
+import matplotlib.pyplot as plt
+from collections import deque
 
 import utils
 from model import ACModel, QModel
@@ -173,6 +178,11 @@ num_episodes = status["num_episodes"]
 update = status["update"]
 start_time = time.time()
 
+# Track all success rates for plotting
+all_success_history = []
+# Track recent 100 episodes for rolling success rate
+recent_success_window = deque(maxlen=100)
+
 while num_episodes < args.episodes:
     # Update model parameters
 
@@ -217,6 +227,20 @@ while num_episodes < args.episodes:
             rreturn_per_episode = utils.synthesize(logs["reshaped_return_per_episode"])
             num_frames_per_episode = utils.synthesize(logs["num_frames_per_episode"])
 
+            # Update success tracking
+            if "success_per_episode" in logs:
+                for success in logs["success_per_episode"]:
+                    recent_success_window.append(success)
+                    all_success_history.append(success)
+
+                # Calculate recent 100 episodes success rate
+                success_rate_100 = np.mean(recent_success_window) if len(recent_success_window) > 0 else 0
+                # Calculate success rate for current batch
+                success_rate_batch = np.mean(logs["success_per_episode"]) if len(logs["success_per_episode"]) > 0 else 0
+            else:
+                success_rate_100 = 0
+                success_rate_batch = 0
+
             header = ["update", "episodes", "frames", "FPS", "duration"]
             data = [update, num_episodes, num_frames, fps, duration]
             header += ["rreturn_" + key for key in rreturn_per_episode.keys()]
@@ -225,9 +249,11 @@ while num_episodes < args.episodes:
             data += num_frames_per_episode.values()
             header += ["entropy", "value", "policy_loss", "value_loss", "grad_norm"]
             data += [logs["entropy"], logs["value"], logs["policy_loss"], logs["value_loss"], logs["grad_norm"]]
+            header += ["success_rate_100", "success_rate_batch"]
+            data += [success_rate_100, success_rate_batch]
 
             txt_logger.info(
-                "U {} | E {} | F {:06} | FPS {:04.0f} | D {} | rR:μσmM {:.2f} {:.2f} {:.2f} {:.2f} | F:μσmM {:.1f} {:.1f} {} {} | H {:.3f} | V {:.3f} | pL {:.3f} | vL {:.3f} | ∇ {:.3f}"
+                "U {} | E {} | F {:06} | FPS {:04.0f} | D {} | rR:μσmM {:.2f} {:.2f} {:.2f} {:.2f} | F:μσmM {:.1f} {:.1f} {} {} | H {:.3f} | V {:.3f} | pL {:.3f} | vL {:.3f} | ∇ {:.3f} | SR100 {:.1%} | SRb {:.1%}"
                 .format(*data))
 
             header += ["return_" + key for key in return_per_episode.keys()]
@@ -255,3 +281,74 @@ while num_episodes < args.episodes:
             status["vocab"] = preprocess_obss.vocab.vocab
         utils.save_status(status, model_dir)
         txt_logger.info("Status saved")
+
+# Training finished - plot success rate curve
+if args.algo != 'dqn' and len(all_success_history) > 0:
+    txt_logger.info("\n" + "="*60)
+    txt_logger.info("Training completed! Generating success rate plot...")
+
+    # Calculate rolling average success rate (window size 100)
+    def calculate_rolling_avg(data, window=100):
+        if len(data) < window:
+            return list(range(1, len(data)+1)), [np.mean(data[:i+1]) for i in range(len(data))]
+        rolling_avg = []
+        for i in range(len(data)):
+            if i < window:
+                rolling_avg.append(np.mean(data[:i+1]))
+            else:
+                rolling_avg.append(np.mean(data[i-window+1:i+1]))
+        return list(range(1, len(data)+1)), rolling_avg
+
+    episodes, rolling_success_rate = calculate_rolling_avg(all_success_history, window=100)
+
+    # Create the plot
+    plt.figure(figsize=(12, 6))
+
+    # Plot 1: Rolling average success rate
+    plt.subplot(1, 2, 1)
+    plt.plot(episodes, rolling_success_rate, linewidth=2, color='#2E86AB')
+    plt.xlabel('Episode', fontsize=12)
+    plt.ylabel('Success Rate (Rolling Avg 100)', fontsize=12)
+    plt.title('Success Rate over Training', fontsize=14, fontweight='bold')
+    plt.grid(True, alpha=0.3)
+    plt.ylim(-0.05, 1.05)
+
+    # Add horizontal line at 0.9 for reference
+    plt.axhline(y=0.9, color='r', linestyle='--', alpha=0.5, label='90% Success')
+    plt.legend()
+
+    # Plot 2: Success rate by bins (every 100 episodes)
+    plt.subplot(1, 2, 2)
+    bin_size = 100
+    num_bins = len(all_success_history) // bin_size
+    if num_bins > 0:
+        binned_success = [np.mean(all_success_history[i*bin_size:(i+1)*bin_size])
+                         for i in range(num_bins)]
+        bin_centers = [(i+0.5)*bin_size for i in range(num_bins)]
+        plt.bar(bin_centers, binned_success, width=bin_size*0.8,
+               color='#A23B72', alpha=0.7, edgecolor='black')
+        plt.xlabel('Episode', fontsize=12)
+        plt.ylabel('Success Rate (per 100 episodes)', fontsize=12)
+        plt.title('Success Rate Distribution', fontsize=14, fontweight='bold')
+        plt.grid(True, alpha=0.3, axis='y')
+        plt.ylim(0, 1.05)
+
+    plt.tight_layout()
+
+    # Save the plot
+    plot_path = os.path.join(model_dir, 'success_rate_plot.png')
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+    plt.close()
+
+    # Print summary statistics
+    final_100_success = np.mean(all_success_history[-100:]) if len(all_success_history) >= 100 else np.mean(all_success_history)
+    overall_success = np.mean(all_success_history)
+
+    txt_logger.info(f"\n{'='*60}")
+    txt_logger.info("SUCCESS RATE SUMMARY")
+    txt_logger.info(f"{'='*60}")
+    txt_logger.info(f"Total Episodes: {len(all_success_history)}")
+    txt_logger.info(f"Overall Success Rate: {overall_success:.2%}")
+    txt_logger.info(f"Final 100 Episodes Success Rate: {final_100_success:.2%}")
+    txt_logger.info(f"Success rate plot saved to: {plot_path}")
+    txt_logger.info(f"{'='*60}\n")

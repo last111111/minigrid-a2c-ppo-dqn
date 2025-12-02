@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(dir c:Users17140Desktopminigrid-a2c-ppo-dqn)",
+      "Bash(findstr:*)",
+      "Bash(pip install:*)",
+      "Bash(python -m pip install:*)",
+      "Bash(python3 -m pip install:*)",
+      "Bash(cmd.exe /c \"python -m pip install --version\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
