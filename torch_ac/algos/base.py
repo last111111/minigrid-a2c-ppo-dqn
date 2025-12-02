@@ -101,6 +101,7 @@ class BaseAlgo(ABC):
         self.log_return = [0] * self.num_procs
         self.log_reshaped_return = [0] * self.num_procs
         self.log_num_frames = [0] * self.num_procs
+        self.log_success = []  # Track success for each episode (1 if reward > 0, else 0)
 
     def collect_experiences(self):
         """Collects rollouts and computes advantages.
@@ -165,9 +166,12 @@ class BaseAlgo(ABC):
             for i, done_ in enumerate(done):
                 if done_:
                     self.log_done_counter += 1
-                    self.log_return.append(self.log_episode_return[i].item())
+                    episode_return = self.log_episode_return[i].item()
+                    self.log_return.append(episode_return)
                     self.log_reshaped_return.append(self.log_episode_reshaped_return[i].item())
                     self.log_num_frames.append(self.log_episode_num_frames[i].item())
+                    # Track success: 1 if reward > 0, else 0
+                    self.log_success.append(1 if episode_return > 0 else 0)
 
             self.log_episode_return *= self.mask
             self.log_episode_reshaped_return *= self.mask
@@ -223,18 +227,26 @@ class BaseAlgo(ABC):
 
         keep = max(self.log_done_counter, self.num_procs)
 
+        # Calculate success rate from last 100 episodes
+        success_window = self.log_success[-100:] if len(self.log_success) > 0 else []
+        success_rate = sum(success_window) / len(success_window) if len(success_window) > 0 else 0.0
+
         logs = {
             "return_per_episode": self.log_return[-keep:],
             "reshaped_return_per_episode": self.log_reshaped_return[-keep:],
             "num_frames_per_episode": self.log_num_frames[-keep:],
             "num_frames": self.num_frames,
-            "done": self.log_done_counter
+            "done": self.log_done_counter,
+            "success_rate": success_rate,
+            "success_count": len(success_window)
         }
 
         self.log_done_counter = 0
         self.log_return = self.log_return[-self.num_procs:]
         self.log_reshaped_return = self.log_reshaped_return[-self.num_procs:]
         self.log_num_frames = self.log_num_frames[-self.num_procs:]
+        # Keep last 100 episodes for success rate calculation
+        self.log_success = self.log_success[-100:]
 
         return exps, logs
 
