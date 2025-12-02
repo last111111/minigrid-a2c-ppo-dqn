@@ -3,6 +3,7 @@ tensorboard
 tensorboardX>=1.6
 numpy>=1.18.0
 gym==0.23.1
+matplotlib>=3.0
 
 # Visualization (for success rate plotting)
 matplotlib>=3.3.0

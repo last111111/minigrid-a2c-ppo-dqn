@@ -1,13 +1,12 @@
 {
   "permissions": {
     "allow": [
+      "Bash(cat:*)",
       "Bash(find:*)",
-      "Bash(dir c:Users17140Desktopminigrid-a2c-ppo-dqn)",
-      "Bash(findstr:*)",
-      "Bash(pip install:*)",
-      "Bash(python -m pip install:*)",
-      "Bash(python3 -m pip install:*)",
-      "Bash(cmd.exe /c \"python -m pip install --version\")"
+      "Bash(python3:*)",
+      "Bash(for file in minigrid/gym_minigrid/envs/*.py)",
+      "Bash(do grep -A 1 id= $file)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []
