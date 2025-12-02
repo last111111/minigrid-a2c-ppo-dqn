@@ -229,12 +229,13 @@ while num_episodes < args.episodes:
             # Add success rate to header and data
             success_rate = logs.get("success_rate", 0.0)
             success_count = logs.get("success_count", 0)
+            success_num = int(success_rate * success_count) if success_count > 0 else 0
             header += ["success_rate", "success_count"]
             data += [success_rate, success_count]
 
             txt_logger.info(
-                "U {} | E {} | F {:06} | FPS {:04.0f} | D {} | rR:μσmM {:.2f} {:.2f} {:.2f} {:.2f} | F:μσmM {:.1f} {:.1f} {} {} | H {:.3f} | V {:.3f} | pL {:.3f} | vL {:.3f} | ∇ {:.3f} | SR {:.1%} ({}/{})"
-                .format(*data[:17], success_rate, int(success_rate * success_count), success_count))
+                "U {} | E {} | F {:06} | FPS {:04.0f} | D {} | rR:μσmM {:.2f} {:.2f} {:.2f} {:.2f} | F:μσmM {:.1f} {:.1f} {} {} | H {:.3f} | V {:.3f} | pL {:.3f} | vL {:.3f} | ∇ {:.3f} | SR {:.2%} ({}/{})"
+                .format(*data, success_num, success_count))
 
             header += ["return_" + key for key in return_per_episode.keys()]
             data += return_per_episode.values()
