@@ -7,6 +7,9 @@ import torch_ac
 import tensorboardX
 import sys
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
+import matplotlib.pyplot as plt
 
 import utils
 from model import ACModel, QModel
@@ -165,6 +168,34 @@ if "optimizer_state" in status:
     algo.optimizer.load_state_dict(status["optimizer_state"])
 txt_logger.info("Optimizer loaded\n")
 
+# Initialize success rate tracking for plotting
+success_rate_history = []
+update_history = []
+
+def plot_success_rate(updates, success_rates, model_dir):
+    """Plot and save success rate over training"""
+    plt.figure(figsize=(10, 6))
+    plt.plot(updates, success_rates, 'b-', linewidth=2, label='Success Rate')
+    plt.xlabel('Update', fontsize=12)
+    plt.ylabel('Success Rate (%)', fontsize=12)
+    plt.title('Training Success Rate Over Time', fontsize=14, fontweight='bold')
+    plt.grid(True, alpha=0.3)
+    plt.legend(fontsize=10)
+
+    # Add horizontal lines for reference
+    plt.axhline(y=0.5, color='r', linestyle='--', alpha=0.5, label='50%')
+    plt.axhline(y=0.8, color='g', linestyle='--', alpha=0.5, label='80%')
+
+    plt.ylim(0, 1.0)
+    plt.tight_layout()
+
+    # Save the plot
+    plot_path = model_dir + '/success_rate.png'
+    plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+    plt.close()
+
+    return plot_path
+
 # Train model
 
 num_frames = status["num_frames"]
@@ -233,6 +264,10 @@ while num_episodes < args.episodes:
             header += ["success_rate", "success_count"]
             data += [success_rate, success_count]
 
+            # Track success rate for plotting
+            success_rate_history.append(success_rate)
+            update_history.append(update)
+
             txt_logger.info(
                 "U {} | E {} | F {:06} | FPS {:04.0f} | D {} | rR:μσmM {:.2f} {:.2f} {:.2f} {:.2f} | F:μσmM {:.1f} {:.1f} {} {} | H {:.3f} | V {:.3f} | pL {:.3f} | vL {:.3f} | ∇ {:.3f} | SR {:.2%} ({}/{})"
                 .format(*data, success_num, success_count))
@@ -262,3 +297,8 @@ while num_episodes < args.episodes:
             status["vocab"] = preprocess_obss.vocab.vocab
         utils.save_status(status, model_dir)
         txt_logger.info("Status saved")
+
+        # Plot and save success rate graph
+        if args.algo != 'dqn' and len(success_rate_history) > 0:
+            plot_path = plot_success_rate(update_history, success_rate_history, model_dir)
+            txt_logger.info(f"Success rate plot saved to {plot_path}")
